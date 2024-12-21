@@ -45,7 +45,22 @@
 
 - name: Create Frontend Certificates
   loop: "{{ haproxy_hosts | dict2items }}"
-  ansible.builtin.include_tasks: frontend_certs.yaml
+  ansible.builtin.include_tasks: frontend_certs_generate.yaml
+
+- name: Frontend Certificates cleanup
+  ansible.builtin.include_tasks: frontend_certs_cleanup.yaml
+
+- name: Step cert renewer systemd Override
+  ansible.builtin.template:
+    src: etc/systemd/system/step-cert-renewer.service.d/override.conf
+    dest: /etc/systemd/system/step-cert-renewer.service.d/override.conf
+    mode: "0644"
+  register: cert_renewer_systemd_override
+
+- name: Reload cert renewer systemd # noqa: no-handler
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: cert_renewer_systemd_override.changed
 
 - name: Start HAProxy
   ansible.builtin.systemd_service:

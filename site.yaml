@@ -3,6 +3,8 @@
   become: true
   roles:
     - rmb938.bootstrap
+  vars:
+    step_ca_url: https://cuboid-topi.rmb1993-gmail-com.ca.smallstep.com
 
 - name: HAProxy Base
   hosts: all
@@ -24,8 +26,8 @@
     - tier-2
   vars:
     haproxy_hosts:
-      vault:
-        host: vault.haproxy.rmb938.me
+      hashi-vault:
+        host: hashi-vault.haproxy.rmb938.me
         config:
           - balance roundrobin
 
