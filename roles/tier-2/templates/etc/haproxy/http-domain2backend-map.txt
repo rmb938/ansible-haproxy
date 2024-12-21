@@ -1,0 +1,3 @@
+{% for key, value in haproxy_hosts.items() %}
+    {{ value.host }}: {{ key }}
+{% endfor %}

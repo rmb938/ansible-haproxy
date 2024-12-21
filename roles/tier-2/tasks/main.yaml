@@ -1,0 +1,60 @@
+- name: Configure HAProxy
+  ansible.builtin.template:
+    src: etc/haproxy/haproxy.cfg
+    dest: /etc/haproxy/haproxy.cfg
+    mode: "0644"
+  register: haproxy_config
+
+- name: Configure HAProxy HTTP Domain Map
+  ansible.builtin.template:
+    src: etc/haproxy/http-domain2backend-map.txt
+    dest: /etc/haproxy/http-domain2backend-map.txt
+    mode: "0644"
+  register: haproxy_domain_map_config
+
+- name: Create default certificate key
+  community.crypto.openssl_privatekey:
+    path: /etc/ssl/private/default.pem.key
+    curve: secp384r1
+    type: ECC
+
+- name: Create default CSR
+  community.crypto.openssl_csr_pipe:
+    privatekey_path: /etc/ssl/private/default.pem.key
+    common_name: "{{ ansible_hostname }}"
+    country_name: "US"
+    extended_key_usage:
+      - serverAuth
+      - clientAuth
+    organization_name: "Home Lab"
+    organizational_unit_name: "Host Provisioning Self-Signed"
+    state_or_province_name: "Minnesota"
+    key_usage:
+      - digitalSignature
+    key_usage_critical: true
+    use_common_name_for_san: true
+  changed_when: false
+  register: csr
+
+- name: Create default certificate pem
+  community.crypto.x509_certificate:
+    path: /etc/ssl/private/default.pem
+    csr_content: "{{ csr.csr }}"
+    privatekey_path: /etc/ssl/private/default.pem.key
+    provider: selfsigned
+
+- name: Create Frontend Certificates
+  loop: "{{ haproxy_hosts | dict2items }}"
+  ansible.builtin.include_tasks: frontend_certs.yaml
+
+- name: Start HAProxy
+  ansible.builtin.systemd_service:
+    name: haproxy
+    state: started
+    enabled: true
+
+- name: Reload HAProxy # noqa: no-handler
+  ansible.builtin.systemd_service:
+    name: haproxy
+    state: reloaded
+  when: haproxy_config.changed or haproxy_domain_map_config.changed

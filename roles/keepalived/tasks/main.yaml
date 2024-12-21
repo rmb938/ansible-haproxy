@@ -1,0 +1,23 @@
+- name: Install Keepalived
+  ansible.builtin.package:
+    name: keepalived
+    state: present
+
+- name: Configure Keepalived
+  ansible.builtin.template:
+    src: etc/keepalived/keepalived.conf
+    dest: /etc/keepalived/keepalived.conf
+    mode: "0644"
+  register: keepalived_config
+
+- name: Start Keepalived
+  ansible.builtin.systemd:
+    name: keepalived
+    state: started
+    enabled: true
+
+- name: Reload Keepalived # noqa: no-handler
+  ansible.builtin.systemd:
+    name: keepalived
+    state: reloaded
+  when: keepalived_config.changed

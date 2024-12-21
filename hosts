@@ -1,0 +1,7 @@
+[tier_1]
+haproxy-t1-1.tailnet-047c.ts.net keepalived_state=MASTER keepalived_priority=101
+haproxy-t1-2.tailnet-047c.ts.net keepalived_state=BACKUP keepalived_priority=100
+
+[tier_2]
+haproxy-t2-1.tailnet-047c.ts.net
+haproxy-t2-2.tailnet-047c.ts.net

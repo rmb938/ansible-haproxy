@@ -1,0 +1,30 @@
+- name: Create Frontend Certificates
+  ansible.builtin.command: "step ca certificate --provisioner {{ ansible_fqdn }} --provisioner-password-file /etc/ssh/ssh_host_ed25519_key {{ item.value.host }} /etc/ssl/private/haproxy-{{ item.key }}.crt /etc/ssl/private/haproxy-{{ item.key }}.crt.key" # noqa: yaml[line-length]
+  args:
+    creates: "/etc/ssl/private/haproxy-{{ item.key }}.crt"
+  environment:
+    STEPPATH: "/etc/step"
+
+- name: Create HAProxy cert-renewer systemd override folder
+  ansible.builtin.file:
+    path: /etc/systemd/system/cert-renewer@haproxy-{{ item.key }}.service.d/
+    state: directory
+    mode: "0755"
+
+- name: HAProxy cert-renewer systemd Override
+  ansible.builtin.template:
+    src: etc/systemd/system/cert-renewer@haproxy.service.d/override.conf
+    dest: /etc/systemd/system/cert-renewer@haproxy-{{ item.key }}.service.d/override.conf
+    mode: "0644"
+  register: haproxy_cert_renewer_systemd_override
+
+- name: Reload HAProxy cert-renewer systemd # noqa: no-handler
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: haproxy_cert_renewer_systemd_override.changed
+
+- name: "Enable Renewal Timers"
+  ansible.builtin.systemd_service:
+    name: cert-renewer@haproxy-{{ item.key }}.timer
+    state: started
+    enabled: true
