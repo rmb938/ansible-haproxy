@@ -1,0 +1,65 @@
+- name: Bootstrap
+  hosts: tier_2
+  serial: 1
+  become: true
+  tasks:
+    - name: Create passwords dir
+      ansible.builtin.file:
+        path: /etc/step/passwords
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Create Provisioner and Generate Password
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          step ca provisioner add {{ ansible_fqdn }} --type JWK --create --disable-ssh-ca-user --disable-ssh-ca-host \
+            --x509-min-dur=2190h --x509-max-dur=2190h --x509-default-dur=2190h --ssh=false \
+            --x509-template=<(cat << EOF
+          {% raw %}
+          {
+              "subject": {
+                  "commonName": {{ toJson .Subject.CommonName }},
+                  "country": "US",
+                  "organization": "Home Lab",
+                  "organizationalUnit": "Load Balancing",
+                  "province": "Minnesota"
+              },
+                      "sans": {{ toJson .SANs }},
+              {{- if typeIs "*rsa.PublicKey" .Insecure.CR.PublicKey }}
+                      "keyUsage": ["keyEncipherment", "digitalSignature"],
+              {{- else }}
+                      "keyUsage": ["digitalSignature"],
+              {{- end }}
+                      "extKeyUsage": ["serverAuth", "clientAuth"]
+              }
+          {% endraw %}
+          EOF
+            ) \
+            --password-file=<(openssl rand -base64 32 | tee /dev/stderr)
+      environment:
+        STEP_ADMIN_SUBJECT: dummy@example.com
+        STEP_ADMIN_PROVISIONER: authority-admin-auth0-sso
+      changed_when: false
+      delegate_to: localhost
+      become: false
+      register: provisioner_add
+
+    - name: Set provisioner policy
+      ansible.builtin.shell: "step ca policy provisioner x509 allow dns '*.haproxy.{{ ansible_domain }}' --provisioner {{ ansible_fqdn }}"
+      environment:
+        STEP_ADMIN_SUBJECT: dummy@example.com
+        STEP_ADMIN_PROVISIONER: authority-admin-auth0-sso
+      changed_when: false
+      delegate_to: localhost
+      become: false
+
+    - name: Save Provisioner password to file
+      ansible.builtin.copy:
+        content: "{{ provisioner_add.stderr_lines[0] }}"
+        dest: /etc/step/passwords/{{ ansible_fqdn }}
+        mode: "0600"
+        owner: root
+        group: root
