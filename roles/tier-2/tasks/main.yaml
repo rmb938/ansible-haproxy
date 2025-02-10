@@ -63,12 +63,14 @@
   ansible.builtin.cron:
     name: "renew vault certificates"
     special_time: "hourly"
+    # Rekey needs to happen against the CA, RA's don't support rekey
+    # https://smallstep.com/docs/step-ca/registration-authority-ra-mode/#stepcas-limitations
     job: >-
       step ca rekey /opt/vault/tls/vault.crt
       /opt/vault/tls/vault.key
-      --ca-url https://step-ca.us-homelab1.hl.rmb938.me:8443
+      --ca-url https://step-ca.us-homelab1.hl.rmb938.me
       --root /usr/local/share/ca-certificates/smallstep-homelab-prod.crt
-      --force --mtls=false --expires-in 720h --exec --exec "systemctl try-reload-or-restart vault"
+      --force --expires-in 720h --exec --exec "systemctl try-reload-or-restart vault"
     state: present
 
 - name: Configure Vault Agent
@@ -196,18 +198,51 @@
 #   - x5c cert from vault
 #   - haproxy config
 
-- name: Start HAProxy
+- name: Disable HAProxy
   ansible.builtin.systemd_service:
     name: haproxy
+    # Make sure haproxy service is disabled, only consul-template-consul should start it
     enabled: false
+
+- name: Get Step x5c certificates from Vault
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail &&
+      vault write pki_step_x5c_haproxy_intermediate/issue/pki_step_x5c_haproxy_intermediate_0
+      common_name=haproxy.us-homelab1.hl.rmb938.me -format=json > /etc/ssl/private/vault-step-x5c-haproxy.json
+    executable: /bin/bash
+  environment:
+    VAULT_ADDR: "http://127.0.0.1:8100"
+  args:
+    creates: "/etc/ssl/private/vault-step-x5c-haproxy.json"
+  register: vault_x5c_json
+
+- name: Split Private Key from x5c json # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail &&
+      cat /etc/ssl/private/vault-step-x5c-haproxy.json | jq '.data.private_key' -r > /etc/ssl/private/vault-step-x5c-haproxy.key
+    executable: /bin/bash
+  changed_when: false
+  when: vault_x5c_json.changed
+
+- name: Split Certificate from x5c json # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: >-
+      set -o pipefail &&
+      cat /etc/ssl/private/vault-step-x5c-haproxy.json | jq '.data.certificate' -r > /etc/ssl/private/vault-step-x5c-haproxy.crt &&
+      cat /etc/ssl/private/vault-step-x5c-haproxy.json | jq '.data.issuing_ca' -r >> /etc/ssl/private/vault-step-x5c-haproxy.crt
+    executable: /bin/bash
+  changed_when: false
+  when: vault_x5c_json.changed
 
 - name: Create HAProxy Certificates
   ansible.builtin.command: >-
     step ca certificate *.haproxy.us-homelab1.hl.rmb938.me
     /etc/ssl/private/haproxy.crt
     /etc/ssl/private/haproxy.crt.key
-    --x5c-cert=/etc/ssl/private/x5c-haproxy.crt
-    --x5c-key=/etc/ssl/private/x5c-haproxy.key
+    --x5c-cert=/etc/ssl/private/vault-step-x5c-haproxy.crt
+    --x5c-key=/etc/ssl/private/vault-step-x5c-haproxy.key
     --ca-url https://step-ca.us-homelab1.hl.rmb938.me:9443
     --root /usr/local/share/ca-certificates/smallstep-homelab-prod.crt
   args:
@@ -215,32 +250,26 @@
 
 - name: Cron to renew HAProxy certificates
   ansible.builtin.cron:
-    name: "renew vault certificates"
+    name: "renew haproxy certificates"
     special_time: "hourly"
+    # Rekey needs to happen against the CA, RA's don't support rekey
+    # https://smallstep.com/docs/step-ca/registration-authority-ra-mode/#stepcas-limitations
     job: >-
       step ca rekey /etc/ssl/private/haproxy.crt
       /etc/ssl/private/haproxy.crt.key
-      --ca-url https://step-ca.us-homelab1.hl.rmb938.me:9443
+      --ca-url https://step-ca.us-homelab1.hl.rmb938.me
       --root /usr/local/share/ca-certificates/smallstep-homelab-prod.crt
-      --force --mtls=false --expires-in 720h --exec "systemctl try-reload-or-restart haproxy"
+      --force --expires-in 720h --exec "systemctl try-reload-or-restart haproxy"
     state: present
 
-- name: Configure HAProxy
-  ansible.builtin.template:
-    src: etc/haproxy/haproxy.cfg
-    dest: /etc/haproxy/haproxy.cfg
-    mode: "0644"
-  register: haproxy_config
+# - name: Configure HAProxy
+#   ansible.builtin.template:
+#     src: etc/haproxy/haproxy.cfg
+#     dest: /etc/haproxy/haproxy.cfg
+#     mode: "0644"
 
-- name: Configure HAProxy HTTP Domain Map
-  ansible.builtin.template:
-    src: etc/haproxy/http-domain2backend-map.txt
-    dest: /etc/haproxy/http-domain2backend-map.txt
-    mode: "0644"
-  register: haproxy_domain_map_config
-
-- name: Reload HAProxy # noqa: no-handler
-  ansible.builtin.systemd_service:
-    name: haproxy
-    state: reloaded
-  when: haproxy_config.changed or haproxy_domain_map_config.changed
+# - name: Configure HAProxy HTTP Domain Map
+#   ansible.builtin.template:
+#     src: etc/haproxy/http-domain2backend-map.txt
+#     dest: /etc/haproxy/http-domain2backend-map.txt
+#     mode: "0644"
