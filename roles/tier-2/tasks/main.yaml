@@ -64,7 +64,7 @@
     name: "renew vault certificates"
     special_time: "hourly"
     job: >-
-      step ca renew /opt/vault/tls/vault.crt
+      step ca rekey /opt/vault/tls/vault.crt
       /opt/vault/tls/vault.key
       --ca-url https://step-ca.us-homelab1.hl.rmb938.me:8443
       --root /usr/local/share/ca-certificates/smallstep-homelab-prod.crt
@@ -196,6 +196,11 @@
 #   - x5c cert from vault
 #   - haproxy config
 
+- name: Start HAProxy
+  ansible.builtin.systemd_service:
+    name: haproxy
+    enabled: false
+
 - name: Create HAProxy Certificates
   ansible.builtin.command: >-
     step ca certificate *.haproxy.us-homelab1.hl.rmb938.me
@@ -213,7 +218,7 @@
     name: "renew vault certificates"
     special_time: "hourly"
     job: >-
-      step ca renew /etc/ssl/private/haproxy.crt
+      step ca rekey /etc/ssl/private/haproxy.crt
       /etc/ssl/private/haproxy.crt.key
       --ca-url https://step-ca.us-homelab1.hl.rmb938.me:9443
       --root /usr/local/share/ca-certificates/smallstep-homelab-prod.crt
@@ -233,12 +238,6 @@
     dest: /etc/haproxy/http-domain2backend-map.txt
     mode: "0644"
   register: haproxy_domain_map_config
-
-- name: Start HAProxy
-  ansible.builtin.systemd_service:
-    name: haproxy
-    state: started
-    enabled: true
 
 - name: Reload HAProxy # noqa: no-handler
   ansible.builtin.systemd_service:
