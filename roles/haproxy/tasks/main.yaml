@@ -1,3 +1,4 @@
+# TODO: add to unattended upgrades
 - name: Add HAProxy 3.0 PPA
   ansible.builtin.apt_repository:
     repo: ppa:vbernat/haproxy-3.0

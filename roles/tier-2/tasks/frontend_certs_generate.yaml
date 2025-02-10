@@ -1,6 +1,0 @@
-- name: Create Frontend Certificates
-  ansible.builtin.command: "step ca certificate {{ item.value.host }} /etc/ssl/private/step-ca/haproxy-{{ item.key }}.crt /etc/ssl/private/step-ca/haproxy-{{ item.key }}.crt.key --provisioner={{ ansible_fqdn }} --provisioner-password-file=/etc/step/passwords/{{ ansible_fqdn }}" # noqa: yaml[line-length]
-  args:
-    creates: "/etc/ssl/private/step-ca/haproxy-{{ item.key }}.crt"
-  environment:
-    STEPPATH: "/etc/step"

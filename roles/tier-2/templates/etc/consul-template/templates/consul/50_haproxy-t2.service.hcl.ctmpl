@@ -1,0 +1,14 @@
+# {{ ansible_managed }}
+
+service {
+  name = "haproxy-t2"
+  id   = "haproxy-t2"
+  port = 443
+
+  checks = [
+    {
+      http = "http://localhost"
+      interval = "5s"
+    }
+  ]
+}
