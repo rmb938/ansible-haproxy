@@ -1,4 +1,5 @@
 # {{ ansible_managed }}
+# Consul Template Managed - Consul
 
 service {
   name = "haproxy-t2"

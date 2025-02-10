@@ -192,8 +192,6 @@
   when: consul_template_consul_templates.changed or consul_template_consul_config.changed or consul_template_consul_templates_files.changed
 # End Consul Template for Consul
 
-# TODO: install consul agent
-
 # TODO: consul-template for haproxy
 #   - x5c cert from vault
 #   - haproxy config
@@ -219,7 +217,7 @@
       /etc/ssl/private/haproxy.crt.key
       --ca-url https://step-ca.us-homelab1.hl.rmb938.me:9443
       --root /usr/local/share/ca-certificates/smallstep-homelab-prod.crt
-      --force --mtls=false --expires-in 720h --exec "systemctl reload haproxy"
+      --force --mtls=false --expires-in 720h --exec "systemctl try-reload-or-restart haproxy"
     state: present
 
 - name: Configure HAProxy
