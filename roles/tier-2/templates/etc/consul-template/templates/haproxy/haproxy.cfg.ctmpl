@@ -1,4 +1,5 @@
 ## {{ ansible_managed }}
+# Consul Template Managed - Consul
 
 global
         log /dev/log    local0

@@ -1,8 +1,25 @@
+- name: HAProxy T2 Service Consul Config
+  ansible.builtin.template:
+    src: etc/consul.d/50_haproxy-t1.service.hcl
+    dest: /etc/consul.d/50_haproxy-t1.service.hcl
+    mode: "0644"
+    owner: consul
+    group: consul
+  register: haproxy_t1_service_consul_config
+
+- name: Restart Consul # noqa: no-handler
+  ansible.builtin.systemd_service:
+    name: consul
+    state: restarted
+  when: haproxy_t1_service_consul_config.changed
+
 - name: Configure HAProxy
   ansible.builtin.template:
     src: etc/haproxy/haproxy.cfg
     dest: /etc/haproxy/haproxy.cfg
     mode: "0644"
+    owner: haproxy
+    group: haproxy
   register: haproxy_config
 
 - name: Start HAProxy

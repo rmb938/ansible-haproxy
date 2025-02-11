@@ -45,8 +45,8 @@
           - http-request set-header X-SSL-Client-Version       %{+Q}[ssl_c_version]    if { ssl_fc_has_crt }
 
           - option httpchk GET /v1/sys/health?standbyok=true
-          - server hashi-vault-1 hashi-vault-3.us-homelab1.hl.rmb938.me:8200 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
-          - server hashi-vault-2 hashi-vault-3.us-homelab1.hl.rmb938.me:8200 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
+          - server hashi-vault-1 hashi-vault-1.us-homelab1.hl.rmb938.me:8200 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
+          - server hashi-vault-2 hashi-vault-2.us-homelab1.hl.rmb938.me:8200 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
           - server hashi-vault-3 hashi-vault-3.us-homelab1.hl.rmb938.me:8200 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
 
       hashi-consul:
@@ -58,6 +58,6 @@
           - option forwarded
 
           - option httpchk GET /v1/status/leader
-          - server consul-server-1 consul-server-1.us-homelab1.hl.rmb938.me:8501 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
-          - server consul-server-2 consul-server-2.us-homelab1.hl.rmb938.me:8501 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
-          - server consul-server-3 consul-server-3.us-homelab1.hl.rmb938.me:8501 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
+          - server consul-server-1 hashi-consul-1.us-homelab1.hl.rmb938.me:8501 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
+          - server consul-server-2 hashi-consul-2.us-homelab1.hl.rmb938.me:8501 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
+          - server consul-server-3 hashi-consul-3.us-homelab1.hl.rmb938.me:8501 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]

@@ -61,8 +61,8 @@ acl {
   enable_token_persistence = true
 
   tokens {
+    {{ '{{' }} with secret "consul/creds/{{ ansible_hostname[:-2] }}" {{ '}}' }}
     {% raw %}
-    {{ with secret "consul/creds/haproxy-t2" }}
     default = "{{ .Data.token }}"
     agent   = "{{ .Data.token }}"
     dns     = "{{ .Data.token }}"

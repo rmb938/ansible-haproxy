@@ -1,202 +1,17 @@
-# Start Hashicorp
-- name: Install Hashicorp keyring
-  ansible.builtin.get_url:
-    url: https://apt.releases.hashicorp.com/gpg
-    dest: /usr/share/keyrings/hashicorp-archive-keyring.asc
-    checksum: sha256:cafb01beac341bf2a9ba89793e6dd2468110291adfbb6c62ed11a0cde6c09029
+- name: HAProxy T2 Service Consul Config
+  ansible.builtin.template:
+    src: etc/consul.d/50_haproxy-t2.service.hcl
+    dest: /etc/consul.d/50_haproxy-t2.service.hcl
     mode: "0644"
-
-- name: Add Hashicorp repo
-  ansible.builtin.apt_repository:
-    repo: >
-      deb [arch=amd64 signed-by=/usr/share/keyrings/hashicorp-archive-keyring.asc]
-      https://apt.releases.hashicorp.com {{ ansible_distribution_release }} main
-    state: present
-
-- name: Install Hashicorp Vault & Consul
-  ansible.builtin.package:
-    name:
-      - vault
-      - consul
-      - consul-template
-    state: present
-# End Hashicorp
-
-# Start Consul
-- name: Disable Consul
-  ansible.builtin.systemd:
-    name: consul
-    # Make sure consul service is disabled, only consul-template-consul should start it
-    enabled: false
-
-- name: Make consul tls dir
-  ansible.builtin.file:
-    path: /opt/consul/tls
-    state: directory
-    mode: "0770"
     owner: consul
     group: consul
-# End Consul
+  register: haproxy_t2_service_consul_config
 
-# Start Vault Agent
-- name: Create Vault Certificates
-  ansible.builtin.command: >-
-    step ca certificate {{ ansible_fqdn }}
-    /opt/vault/tls/vault.crt
-    /opt/vault/tls/vault.key
-    --ca-url https://step-ca.us-homelab1.hl.rmb938.me:8443
-    --root /usr/local/share/ca-certificates/smallstep-homelab-prod.crt
-  args:
-    creates: "/opt/vault/tls/vault.crt"
-
-- name: Own Vault certificates
-  ansible.builtin.file:
-    path: /opt/vault/tls/{{ item }}
-    owner: vault
-    group: vault
-    mode: "0600"
-  with_items:
-    - vault.crt
-    - vault.key
-
-- name: Cron to renew vault certificates
-  ansible.builtin.cron:
-    name: "renew vault certificates"
-    special_time: "hourly"
-    # Rekey needs to happen against the CA, RA's don't support rekey
-    # https://smallstep.com/docs/step-ca/registration-authority-ra-mode/#stepcas-limitations
-    job: >-
-      step ca rekey /opt/vault/tls/vault.crt
-      /opt/vault/tls/vault.key
-      --ca-url https://step-ca.us-homelab1.hl.rmb938.me
-      --root /usr/local/share/ca-certificates/smallstep-homelab-prod.crt
-      --force --expires-in 720h --exec --exec "systemctl try-reload-or-restart vault"
-    state: present
-
-- name: Configure Vault Agent
-  ansible.builtin.template:
-    src: etc/vault.d/vault.hcl
-    dest: /etc/vault.d/vault.hcl
-    mode: "0644"
-  register: vault_config
-
-- name: Create Vault Agent systemd override folder
-  ansible.builtin.file:
-    path: /etc/systemd/system/vault.service.d/
-    state: directory
-    mode: "0755"
-
-- name: Vault Agent systemd Override
-  ansible.builtin.template:
-    src: etc/systemd/system/vault.service.d/override.conf
-    dest: /etc/systemd/system/vault.service.d/override.conf
-    mode: "0644"
-  register: vault_systemd
-
-- name: Reload Vault Agent systemd # noqa: no-handler
-  ansible.builtin.systemd:
-    daemon_reload: true
-  when: vault_systemd.changed
-
-- name: Start and enable Vault
-  ansible.builtin.systemd:
-    name: vault
-    state: started
-    enabled: true
-
-- name: Restart vault Agent if config changed # noqa: no-handler
-  ansible.builtin.systemd:
-    name: vault
+- name: Restart Consul # noqa: no-handler
+  ansible.builtin.systemd_service:
+    name: consul
     state: restarted
-  when: vault_config.changed
-# End Vault Agent
-
-# Start Consul Template for Consul
-- name: Add Consul to sudoers
-  community.general.sudoers:
-    name: consul
-    user: consul
-    nopassword: true
-    validation: required
-    commands:
-      - /usr/bin/systemctl reload-or-restart consul
-    state: present
-
-- name: Create Consul Template Dir
-  ansible.builtin.file:
-    path: /etc/consul-template
-    mode: "0755"
-    owner: root
-    group: root
-    state: directory
-
-- name: Configure Consul Template for Consul
-  ansible.builtin.template:
-    src: etc/consul-template/consul-template-consul.hcl
-    dest: /etc/consul-template/consul-template-consul.hcl
-    mode: "0644"
-    owner: consul
-    group: consul
-  register: consul_template_consul_config
-
-- name: Create Consul Template for Consul Templates directory
-  ansible.builtin.file:
-    path: /etc/consul-template/templates/consul/
-    state: directory
-    mode: "0744"
-    owner: consul
-    group: consul
-
-- name: Place Consul Template for Consul Templates Files
-  ansible.builtin.copy:
-    src: "{{ item }}"
-    dest: "/etc/consul-template/templates/consul/{{ item | basename }}"
-    mode: "0644"
-    owner: consul
-    group: consul
-  with_fileglob:
-    - ../files/etc/consul-template/templates/consul/*.ctmpl
-  register: consul_template_consul_templates_files
-
-- name: Place Consul Template for Consul Templates Templates
-  ansible.builtin.template:
-    src: "{{ item }}"
-    dest: "/etc/consul-template/templates/consul/{{ item | basename }}"
-    mode: "0644"
-    owner: consul
-    group: consul
-  with_fileglob:
-    - ../templates/etc/consul-template/templates/consul/*.ctmpl
-  register: consul_template_consul_templates
-
-- name: Consul Template for Consul SystemD
-  ansible.builtin.template:
-    src: etc/systemd/system/consul-template-consul.service
-    dest: /etc/systemd/system/consul-template-consul.service
-    mode: "0644"
-  register: consul_template_consul_systemd
-
-- name: Consul Template for Consul systemd # noqa: no-handler
-  ansible.builtin.systemd:
-    daemon_reload: true
-  when: consul_template_consul_systemd.changed
-
-- name: Start and enable Consul Template for Consul
-  ansible.builtin.systemd:
-    name: consul-template-consul
-    state: started
-    enabled: true
-
-- name: Restart Consul Template for Consul if config changed # noqa: no-handler
-  ansible.builtin.systemd:
-    name: consul-template-consul
-    state: reloaded
-  when: consul_template_consul_templates.changed or consul_template_consul_config.changed or consul_template_consul_templates_files.changed
-# End Consul Template for Consul
-
-# TODO: consul-template for haproxy
-#   - x5c cert from vault
-#   - haproxy config
+  when: haproxy_t2_service_consul_config.changed
 
 - name: Disable HAProxy
   ansible.builtin.systemd_service:
@@ -262,14 +77,77 @@
       --force --expires-in 720h --exec "systemctl try-reload-or-restart haproxy"
     state: present
 
-# - name: Configure HAProxy
-#   ansible.builtin.template:
-#     src: etc/haproxy/haproxy.cfg
-#     dest: /etc/haproxy/haproxy.cfg
-#     mode: "0644"
+# Start Consul Template for HAProxy
+- name: Add haproxy to sudoers
+  community.general.sudoers:
+    name: haproxy
+    user: haproxy
+    nopassword: true
+    validation: required
+    commands:
+      - /usr/bin/systemctl reload-or-restart haproxy
+    state: present
 
-# - name: Configure HAProxy HTTP Domain Map
-#   ansible.builtin.template:
-#     src: etc/haproxy/http-domain2backend-map.txt
-#     dest: /etc/haproxy/http-domain2backend-map.txt
-#     mode: "0644"
+- name: Configure Consul Template for HAProxy
+  ansible.builtin.template:
+    src: etc/consul-template/consul-template-haproxy.hcl
+    dest: /etc/consul-template/consul-template-haproxy.hcl
+    mode: "0644"
+    owner: haproxy
+    group: haproxy
+  register: consul_template_haproxy_config
+
+- name: Create Consul Template for HAProxy Templates directory
+  ansible.builtin.file:
+    path: /etc/consul-template/templates/haproxy/
+    state: directory
+    mode: "0744"
+    owner: haproxy
+    group: haproxy
+
+- name: Place Consul Template for HAProxy Templates Files
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/consul-template/templates/haproxy/{{ item | basename }}"
+    mode: "0644"
+    owner: haproxy
+    group: haproxy
+  with_fileglob:
+    - ../files/etc/consul-template/templates/haproxy/*.ctmpl
+  register: consul_template_haproxy_templates_files
+
+- name: Place Consul Template for HAProxy Templates Templates
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "/etc/consul-template/templates/haproxy/{{ item | basename }}"
+    mode: "0644"
+    owner: haproxy
+    group: haproxy
+  with_fileglob:
+    - ../templates/etc/consul-template/templates/haproxy/*.ctmpl
+  register: consul_template_haproxy_templates
+
+- name: Consul Template for HAProxy SystemD
+  ansible.builtin.template:
+    src: etc/systemd/system/consul-template-haproxy.service
+    dest: /etc/systemd/system/consul-template-haproxy.service
+    mode: "0644"
+  register: consul_template_haproxy_systemd
+
+- name: Consul Template for HAProxy systemd # noqa: no-handler
+  ansible.builtin.systemd:
+    daemon_reload: true
+  when: consul_template_haproxy_systemd.changed
+
+- name: Start and enable Consul Template for HAProxy
+  ansible.builtin.systemd:
+    name: consul-template-haproxy
+    state: started
+    enabled: true
+
+- name: Restart Consul Template for HAProxy if config changed # noqa: no-handler
+  ansible.builtin.systemd:
+    name: consul-template-haproxy
+    state: reloaded
+  when: consul_template_haproxy_templates.changed or consul_template_haproxy_config.changed or consul_template_haproxy_templates_files.changed
+# End Consul Template for HAProxy
