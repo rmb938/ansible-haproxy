@@ -1,7 +1,7 @@
 # {{ ansible_managed }}
 
 [Unit]
-Description="consul-template"
+Description="consul-template-consul"
 Requires=network-online.target
 
 # we need the main vault agent
