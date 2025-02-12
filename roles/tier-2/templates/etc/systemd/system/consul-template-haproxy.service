@@ -12,7 +12,7 @@ After=network-online.target
 # we need the main vault agent
 After=vault.service consul-template-consul.service
 
-ConditionFileNotEmpty=/etc/consul-template/consul-template-consul.hcl
+ConditionFileNotEmpty=/etc/consul-template/consul-template-haproxy.hcl
 StartLimitIntervalSec=60
 StartLimitBurst=3
 
