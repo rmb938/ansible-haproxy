@@ -234,3 +234,18 @@
     state: reloaded
   when: consul_template_consul_templates.changed or consul_template_consul_config.changed or consul_template_consul_templates_files.changed
 # End Consul Template for Consul
+
+- name: Prometheus Node Exporter Service Consul Config
+  ansible.builtin.template:
+    src: etc/consul.d/50_prometheus-node-exporter.service.hcl
+    dest: /etc/consul.d/50_prometheus-node-exporter.service.hcl
+    mode: "0644"
+    owner: consul
+    group: consul
+  register: prometheus_node_exporter_service_consul_config
+
+- name: Restart Consul # noqa: no-handler
+  ansible.builtin.systemd_service:
+    name: consul
+    state: restarted
+  when: prometheus_node_exporter_service_consul_config.changed
