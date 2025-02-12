@@ -23,7 +23,7 @@
   ansible.builtin.shell:
     cmd: >-
       set -o pipefail &&
-      vault write pki_step_x5c_haproxy_intermediate/issue/pki_step_x5c_haproxy_intermediate_0
+      vault write pki_step_x5c_haproxy_intermediate/issue/pki_step_x5c_haproxy_intermediate_default
       common_name=haproxy.us-homelab1.hl.rmb938.me -format=json > /etc/ssl/private/vault-step-x5c-haproxy.json
     executable: /bin/bash
   environment:
