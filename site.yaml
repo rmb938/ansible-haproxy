@@ -34,17 +34,27 @@
           # x_forwarded_for_client_cert_header="X-SSL-Client-Cert"
           # x_forwarded_for_client_cert_header_decoders="BASE64"
 
-          - http-request set-header X-SSL-Client-Cert          %{+Q}[ssl_c_der,base64] if { ssl_fc_has_crt }
-          - http-request set-header X-SSL-Client-Verify        %[ssl_c_verify]         if { ssl_fc_has_crt }
-          - http-request set-header X-SSL-Client-SHA1          %{+Q}[ssl_c_sha1]       if { ssl_fc_has_crt }
-          - http-request set-header X-SSL-Client-DN            %{+Q}[ssl_c_s_dn]       if { ssl_fc_has_crt }
-          - http-request set-header X-SSL-Client-CN            %{+Q}[ssl_c_s_dn(cn)]   if { ssl_fc_has_crt }
-          - http-request set-header X-SSL-Client-Issuer        %{+Q}[ssl_c_i_dn]       if { ssl_fc_has_crt }
-          - http-request set-header X-SSL-Client-Not-Before    %{+Q}[ssl_c_notbefore]  if { ssl_fc_has_crt }
-          - http-request set-header X-SSL-Client-Serial        %{+Q}[ssl_c_serial,hex] if { ssl_fc_has_crt }
-          - http-request set-header X-SSL-Client-Version       %{+Q}[ssl_c_version]    if { ssl_fc_has_crt }
+          # Disabling client ssl headers, there is no way for haproxy to pass through the whole
+          # mtls chain in one header so Vault can't verify against a root
+          # Ref: https://github.com/haproxy/haproxy/issues/2235
+          # - http-response set-header X-SSL-Client-Cert          %{+Q}[ssl_c_chain_der,base64] if { ssl_fc_has_crt }
+          # - http-request set-header X-SSL-Client-Cert          %{+Q}[ssl_c_chain_der,base64] if { ssl_fc_has_crt }
+          # - http-request set-header X-SSL-Client-Verify        %[ssl_c_verify]         if { ssl_fc_has_crt }
+          # - http-request set-header X-SSL-Client-SHA1          %{+Q}[ssl_c_sha1]       if { ssl_fc_has_crt }
+          # - http-request set-header X-SSL-Client-DN            %{+Q}[ssl_c_s_dn]       if { ssl_fc_has_crt }
+          # - http-request set-header X-SSL-Client-CN            %{+Q}[ssl_c_s_dn(cn)]   if { ssl_fc_has_crt }
+          # - http-request set-header X-SSL-Client-Issuer        %{+Q}[ssl_c_i_dn]       if { ssl_fc_has_crt }
+          # - http-request set-header X-SSL-Client-Not-Before    %{+Q}[ssl_c_notbefore]  if { ssl_fc_has_crt }
+          # - http-request set-header X-SSL-Client-Serial        %{+Q}[ssl_c_serial,hex] if { ssl_fc_has_crt }
+          # - http-request set-header X-SSL-Client-Version       %{+Q}[ssl_c_version]    if { ssl_fc_has_crt }
 
-          - option httpchk GET /v1/sys/health?standbyok=true
+          # Due to above we only want standbys to be healthy so we get redirected
+          - option httpchk GET /v1/sys/health?standbycode=200&activecode=429
+
+          # Header to force vault to always redirect instead of forwarding
+          # when connecting through the LB. This forces MTLs auth to work correctly
+          - http-request set-header X-Vault-No-Request-Forwarding "true"
+
           - server hashi-vault-1 hashi-vault-1.us-homelab1.hl.rmb938.me:8200 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
           - server hashi-vault-2 hashi-vault-2.us-homelab1.hl.rmb938.me:8200 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
           - server hashi-vault-3 hashi-vault-3.us-homelab1.hl.rmb938.me:8200 check resolvers nameservers init-addr last,libc,none observe layer7 on-error mark-down ssl verify required ca-file @system-ca # noqa: yaml[line-length]
