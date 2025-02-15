@@ -5,7 +5,7 @@ Description="consul-template-consul"
 Requires=network-online.target
 
 # we need the main vault agent
-Requires=vault.service
+Wants=vault.service
 
 After=network-online.target
 

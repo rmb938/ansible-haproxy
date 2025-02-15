@@ -5,7 +5,7 @@ Description="consul-template-haproxy"
 Requires=network-online.target
 
 # we need the main vault agent
-Requires=vault.service consul-template-consul.service
+Wants=vault.service consul-template-consul.service
 
 After=network-online.target
 
