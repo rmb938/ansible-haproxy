@@ -27,6 +27,8 @@ global
         ssl-default-server-ciphersuites TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256
         ssl-default-server-options ssl-min-ver TLSv1.3 no-tls-tickets
 
+        lua-load /etc/haproxy/lua/clientcert.lua
+
 defaults
         log     global
         mode    http
@@ -73,6 +75,9 @@ frontend https
         http-response set-header Strict-Transport-Security "max-age=16000000;"
         
         http-request del-header Proxy
+
+        http-request lua.clientcert "req"
+        http-response lua.clientcert "res"
 
         use_backend %[req.hdr(host),lower,map(/etc/haproxy/http-domain2backend-map.txt)]
 

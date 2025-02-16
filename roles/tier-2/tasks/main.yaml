@@ -19,6 +19,27 @@
     # Make sure haproxy service is disabled, only consul-template-consul should start it
     enabled: false
 
+- name: Create HAProxy lua dir
+  ansible.builtin.file:
+    path: /etc/haproxy/lua/
+    state: directory
+    mode: "0770"
+    owner: haproxy
+    group: haproxy
+
+# TODO: reload HAProxy when this change
+# Maybe we put their hash into the haproxy ctmpl or something instead
+- name: Copy HAProxy Lua Scripts
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/etc/haproxy/lua/{{ item | basename }}"
+    mode: "0644"
+    owner: haproxy
+    group: haproxy
+  with_fileglob:
+    - ../files/etc/haproxy/lua/*.lua
+  register: consul_template_haproxy_templates_files
+
 - name: Get Step x5c certificates from Vault
   ansible.builtin.shell:
     cmd: >-
