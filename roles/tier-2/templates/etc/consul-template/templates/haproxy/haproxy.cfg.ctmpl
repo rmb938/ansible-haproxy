@@ -76,9 +76,6 @@ frontend https
         
         http-request del-header Proxy
 
-        http-request lua.clientcert "req"
-        http-response lua.clientcert "res"
-
         use_backend %[req.hdr(host),lower,map(/etc/haproxy/http-domain2backend-map.txt)]
 
 resolvers nameservers
