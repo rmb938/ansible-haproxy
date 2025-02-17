@@ -5,12 +5,12 @@ Description="consul-template-haproxy"
 Requires=network-online.target
 
 # we need the main vault agent
-Wants=vault.service consul-template-consul.service
+Wants=consul-template-consul.service
 
 After=network-online.target
 
 # we need the main vault agent
-After=vault.service consul-template-consul.service
+After=consul-template-consul.service
 
 ConditionFileNotEmpty=/etc/consul-template/consul-template-haproxy.hcl
 StartLimitIntervalSec=60
