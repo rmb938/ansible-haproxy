@@ -170,5 +170,7 @@
   ansible.builtin.systemd:
     name: consul-template-haproxy
     state: reloaded
-  when: consul_template_haproxy_templates.changed or consul_template_haproxy_config.changed or consul_template_haproxy_templates_files.changed
+  when: consul_template_haproxy_templates.changed or
+    consul_template_haproxy_config.changed or
+    consul_template_haproxy_templates_files.changed
 # End Consul Template for HAProxy
