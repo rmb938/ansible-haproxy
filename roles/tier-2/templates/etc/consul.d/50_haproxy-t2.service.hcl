@@ -13,8 +13,8 @@ services {
 }
 
 services {
-  name = "haproxy-t2-prometheus"
-  id   = "haproxy-t2-prometheus"
+  name = "prometheus-haproxy-t2"
+  id   = "prometheus-haproxy-t2"
   port = 8405
 
   meta {
